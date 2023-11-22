@@ -28,8 +28,10 @@
  *
  * @param num1
  * @param num2
+ *
+ * TLE
  */
-function makeTheIntegerZero(num1: number, num2: number): number {
+function makeTheIntegerZeroV1(num1: number, num2: number): number {
   if (num2 >= num1) return -1
 
   let res = 0
@@ -69,4 +71,14 @@ function makeTheIntegerZero(num1: number, num2: number): number {
   return res
 }
 
-console.log(makeTheIntegerZero(56785, -70228))
+
+function makeTheIntegerZeroV2(num1: number, num2: number): number {
+  let low = 1
+}
+
+function makeTheIntegerZero(num1: number, num2: number): number {
+  return makeTheIntegerZeroV2(num1, num2)
+}
+
+
+console.log(makeTheIntegerZeroV1(56785, -70228))

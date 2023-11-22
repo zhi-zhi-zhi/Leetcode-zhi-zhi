@@ -107,6 +107,7 @@ function countServers(n: number, logs: number[][], x: number, queries: number[])
 //   return res.sort((a, b) => a[1]-b[1]).map(item => item[0])
 // };
 
+
 console.log(countServers(3
     , [[1, 3], [2, 6], [1, 5]]
     , 5

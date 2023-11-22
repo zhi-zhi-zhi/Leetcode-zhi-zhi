@@ -71,7 +71,7 @@ function closestNodes(root: TreeNode | null, queries: number[]): number[][] {
  * @param nums
  * @param target
  */
-function lowerBound(nums: number[], target: number): number {
+function lowerBound(nums: number[][], target: number): number {
   let left = 0, right = nums.length - 1
 
   while (left <= right) {
