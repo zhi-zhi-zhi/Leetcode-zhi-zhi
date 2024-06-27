@@ -1,117 +1,140 @@
-class LazySegmentTree {
-  tree: number[]
-  lazyTag: number[]
-  nums: number[]
-
-  constructor(nums: number[]) {
-    this.nums = nums
-    this.tree = Array(nums.length * 4) .fill(0)
-    this.lazyTag = Array(nums.length * 4) .fill(0)
-    this._build(0, 0, this.nums.length - 1)
+{
+  class SegmentTreeNode {
+    left: SegmentTreeNode | null = null
+    right: SegmentTreeNode | null = null
+    value: number = 0
+    lazyTag: boolean = false
   }
 
-  private _build(root: number, start: number, end: number) {
-    if (start === end) {
-      this.tree[root] = this.nums[start]
-      return
+  class SegmentTree {
+    nums: number[]
+    root: SegmentTreeNode
+
+    constructor(nums: number[]) {
+      this.nums = nums
+      this.root = new SegmentTreeNode()
+
+      this._build(this.root, 0, this.nums.length - 1)
     }
 
-    const mid = start + ((end - start) >> 1)
-    this._build(root * 2 + 1, start, mid)
-    this._build(root * 2 + 1, mid + 1, end)
-    this.tree[root] = Math.max(this.tree[root * 2 + 1], this.tree[root * 2 + 2])
-  }
+    private _build(node: SegmentTreeNode, left: number, right: number) {
+      if (left > right) return
+      if (left === right) {
+        node.value = this.nums[left]
+        return;
+      }
 
-  updateRange(left: number, right: number, val: number) {
-    this._updateRange(0, 0, this.nums.length - 1, left, right, val)
-  }
+      node.left = new SegmentTreeNode()
+      node.right = new SegmentTreeNode()
 
-  private _updateRange(root: number, start: number, end: number, left: number, right: number, val: number) {
-    // [start, end] not covered by [left, right]
-    if (right < start || end < left) return
-    // [start, end] completely covered within [left, right]
-    if (left <= start && end <= right) {
-      this.tree[root] = val
-      this.lazyTag[root] = 1
-      return
+      const mid = left + ((right - left) >> 1)
+      this._build(node.left, left, mid)
+      this._build(node.right, mid + 1, right)
+
+      node.value = Math.max(node.left.value, node.right.value)
     }
 
-    // partially covered
-    this._pushDown(root, start, end)
-
-    const mid = start + ((end - start) >> 1)
-    this._updateRange(root * 2 + 1, start, mid, left, right, val)
-    this._updateRange(root * 2 + 2, mid + 1, end, left, right, val)
-    this.tree[root] = Math.max(this.tree[root * 2 + 1], this.tree[root * 2 + 2])
-
-    // should reach hear
-  }
-
-  private _pushDown(root: number, start: number, end: number) {
-    if (this.lazyTag[root] === 0) return
-
-    if (start < end) {
-      this.tree[root * 2 + 1] = this.tree[root]
-      this.lazyTag[root * 2 + 1] = 1
-      this.tree[root * 2 + 2] = this.tree[root]
-      this.lazyTag[root * 2 + 2] = 1
+    updateBatch(updateLeft: number, updateRight: number, value: number) {
+      this._updateBatch(this.root, updateLeft, updateRight, value, 0, this.nums.length - 1)
     }
-    this.lazyTag[root] = 0
+
+    private _updateBatch(node: SegmentTreeNode, updateLeft: number, updateRight: number, value: number, curLeft: number, curRight: number) {
+      // 区间不重合
+      if (updateLeft > curRight || updateRight < curLeft) return
+      // 区间完全重合
+      if (updateLeft <= curLeft && curRight <= updateRight) {
+        node.value = value
+        node.lazyTag = true
+        return;
+      }
+
+      // 部分重合
+      if (node.lazyTag) {
+        // 处理懒标记情况，节点值下放
+        node.lazyTag = false
+
+        node.left.value = node.value
+        node.left.lazyTag = true
+        node.right.value = node.value
+        node.right.lazyTag = true
+      }
+
+      const mid = curLeft + ((curRight - curLeft) >> 1)
+      this._updateBatch(node.left, updateLeft, updateRight, value, curLeft, mid)
+      this._updateBatch(node.right, updateLeft, updateRight, value, mid + 1, curRight)
+
+      node.value = Math.max(node.left.value, node.right.value)
+    }
+
+    query(queryLeft: number, queryRight: number): number {
+      return this._query(this.root, queryLeft, queryRight, 0, this.nums.length - 1)
+    }
+
+    private _query(node: SegmentTreeNode, queryLeft: number, queryRight: number, curLeft: number, curRight: number): number {
+      // 区间不重合
+      if (queryLeft > curRight || queryRight < curLeft) return 0
+      // 区间完全重合
+      if (queryLeft <= curLeft && curRight <= queryRight) {
+        return node.value
+      }
+
+      // 部分重合
+      if (node.lazyTag) {
+        // 处理懒标记情况，节点值下放
+        node.lazyTag = false
+
+        node.left.value = node.value
+        node.left.lazyTag = true
+        node.right.value = node.value
+        node.right.lazyTag = true
+      }
+
+      const mid = curLeft + ((curRight - curLeft) >> 1)
+      return Math.max(
+        this._query(node.left, queryLeft, queryRight, curLeft, mid),
+        this._query(node.right, queryLeft, queryRight, mid + 1, curRight)
+      )
+    }
   }
 
-  queryRange(left: number, right: number): number {
-    return this._queryRange(0, 0, this.nums.length - 1, left, right)
-  }
+  /**
+   * 解题思路：
+   * 1. 数据离散化
+   * 2. 使用线段树存储各节点高度
+   * 3. update 时，找出当前区域最大值 max，再把当前区域更新为 max + val
+   * @param positions
+   */
+  function fallingSquares(positions: number[][]): number[] {
+    // 1. 离散化
+    const allNumsSet = new Set(
+      positions.reduce((arr, [start, sideLength]) => {
+        arr.push(start, start + sideLength - 1)
+        return arr
+      }, [])
+    )
+    const indexToNumberArr = Array.from(allNumsSet).sort((a, b) => a - b)
+    const numToIndexMap = new Map<number, number>(
+      indexToNumberArr.map((num, index) => {
+        return [num, index]
+      })
+    )
 
-  private _queryRange(root: number, start: number, end: number, left: number, right: number): number {
-    // [start, end] not covered by [left, right]
-    if (right < start || end < left) return 0
-    // [start, end] completely covered within [left, right]
-    if (left <= start && end <= right) return this.tree[root]
+    // 2. 建立线段树
+    const segmentTree = new SegmentTree(Array(allNumsSet.size).fill(0))
 
-    // partially covered
-    this._pushDown(root, start, end)
+    // 3. 更新线段树，并记录每次更新时的最大值
+    const res = []
 
-    const mid = start + ((end - start) >> 1)
-    return Math.max(this._queryRange(root * 2 + 1, start, mid, left, right),
-      this._queryRange(root * 2 + 2, mid + 1, end, left, right))
-  }
+    for (const [start, sideLen] of positions) {
+      const l = numToIndexMap.get(start), r = numToIndexMap.get(start + sideLen -1)
 
+      // 找到区域最大值
+      const curMax = segmentTree.query(l, r)
+      // 更新最大值并记录
+      segmentTree.updateBatch(l, r, curMax + sideLen)
+      res.push(segmentTree.query(0, allNumsSet.size - 1))
+    }
+
+    return res
+  };
 }
-
-function fallingSquares(positions: number[][]): number[] {
-  // 离散化
-  // position.length <= 1000
-  // 即最多有 2000 个点
-  const set = new Set<number>()
-  for (const [start, len] of positions) {
-    set.add(start)
-    set.add(start + len - 1)
-  }
-
-  let index = 0
-  const indexToPointMap = new Map<number, number>()
-  for (const point of Array.from(set).sort((a, b) => a - b)) {
-    indexToPointMap.set(point, index)
-    index++
-  }
-
-  const n = indexToPointMap.size
-
-  const segTree = new LazySegmentTree(Array(n).fill(0))
-  const res: number[] = []
-
-  for (const [left, len] of positions) {
-    const l = indexToPointMap.get(left)!, r = indexToPointMap.get(left + len - 1)!
-    const curMax = segTree.queryRange(l, r)
-    segTree.updateRange(l, r, len + curMax)
-    res.push(segTree.queryRange(0, n - 1))
-  }
-
-  return res
-};
-//
-// console.log(fallingSquares([[1,2],[2,3],[6,1]]));
-// console.log(fallingSquares([[100,100],[200,100]]));
-// console.log(fallingSquares([[9,7],[1,9],[3,1]]));
-// console.log(fallingSquares([[7,2],[1,7],[9,5],[1,8],[3,4]]));

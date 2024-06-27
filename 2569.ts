@@ -1,113 +1,116 @@
-class LazySumSegTree {
-  tree: number[];
-  lazyTag: number[];
-  lazyVal: number[];
-  nums: number[];
-
-  constructor(nums: number[]) {
-    this.nums = nums;
-    this.tree = Array(nums.length * 4).fill(0);
-    this.lazyTag = Array(nums.length * 4).fill(0);
-    this.lazyVal = Array(nums.length * 4).fill(0);
-    this._build(0, 0, this.nums.length - 1);
+{
+  class SegmentTreeNode {
+    left: SegmentTreeNode | null = null
+    right: SegmentTreeNode | null = null
+    sum: number = 0
+    range: number = 0
+    lazy: boolean = false
   }
 
-  private _build(root: number, start: number, end: number) {
-    if (start === end) {
-      this.tree[root] = this.nums[start];
-      return;
+  class SegmentTree {
+    root: SegmentTreeNode
+    nums: number[]
+
+    constructor(nums: number[]) {
+      this.nums = nums
+      this.root = new SegmentTreeNode()
+
+      this._build(this.root, 0, nums.length - 1)
     }
 
-    const mid = start + ((end - start) >> 1);
-
-    this._build(root * 2 + 1, start, mid);
-    this._build(root * 2 + 2, mid + 1, end);
-    this.tree[root] = this.tree[root * 2 + 1] + this.tree[root * 2 + 2];
-  }
-
-  updateRange(left: number, right: number) {
-    this._updateRange(0, 0, this.nums.length - 1, left, right)
-  }
-
-  private _updateRange(root: number, start: number, end: number, left: number, right: number) {
-    // out of boundary
-    if (end < start) return;
-    // not covered by [left, right] with flips
-    if (right < start || end < left) return;
-    // completed covered with [left, right]
-    if (left <= start && end <= right) {
-      this.tree[root] = (end - start + 1) - this.tree[root];
-      this.lazyTag[root] = 1;
-      this.lazyVal[root] += 1;
-      return;
-    }
-
-    // non-left node
-    // [start, end] partially overlap with [left, right]
-    if (end > start) {
-      const mid = start + ((end - start) >> 1);
-      this._pushDown(root, start, end)
-
-      this._updateRange(root * 2 + 1, start, mid, left, right);
-      this._updateRange(root * 2 + 2, mid + 1, end, left, right);
-      this.tree[root] = this.tree[root * 2 + 1] + this.tree[root * 2 + 2]
-    }
-  }
-
-  private _pushDown(root: number, start: number, end: number) {
-    if (end <= start) return
-
-    if (this.lazyTag[root] === 1) {
-      if (this.lazyVal[root] % 2 === 1) {
-        // odd should flip
-        const mid = start + ((end - start) >> 1)
-        this.tree[root * 2 + 1] = (mid - start + 1) - this.tree[root * 2 + 1];
-        this.tree[root * 2 + 2] = (end - mid) - this.tree[root * 2 + 2];
-        this.lazyTag[root * 2 + 1] = 1;
-        this.lazyTag[root * 2 + 2] = 1;
-        this.lazyVal[root * 2 + 1] += this.lazyVal[root];
-        this.lazyVal[root * 2 + 2] += this.lazyVal[root];
+    private _build(node: SegmentTreeNode, left: number, right: number) {
+      if (left === right) {
+        node.sum = this.nums[left]
+        node.range = 1
+        return
       }
 
-      this.lazyTag[root] = 0;
-      this.lazyVal[root] = 0;
+      node.left = new SegmentTreeNode()
+      node.right = new SegmentTreeNode()
+
+      const mid = left + ((right - left) >> 1)
+      this._build(node.left, left, mid)
+      this._build(node.right, mid + 1, right)
+
+      node.sum = node.left.sum + node.right.sum
+      node.range = right - left + 1
+    }
+
+    updateRangeReverse(left: number, right: number) {
+      this._updateRangeReverse(this.root, 0, this.nums.length - 1, left, right)
+    }
+
+    private _updateRangeReverse(node: SegmentTreeNode, left: number, right: number, updateLeft: number, updateRight: number) {
+      if (left > updateRight || right < updateLeft || left > right) return
+      if (updateLeft <= left && right <= updateRight) {
+        node.lazy = !node.lazy
+        node.sum = node.range - node.sum
+        return
+      }
+
+      this._pushDown(node)
+
+      const mid = left + ((right - left) >> 1)
+      this._updateRangeReverse(node.left, left, mid, updateLeft, updateRight)
+      this._updateRangeReverse(node.right, mid + 1, right, updateLeft, updateRight)
+
+      node.sum = node.left.sum + node.right.sum
+    }
+
+    queryRange(left: number, right: number): number {
+      return this._queryRange(this.root, 0, this.nums.length - 1, left, right)
+    }
+
+    private _queryRange(node: SegmentTreeNode, left: number, right: number, queryLeft: number, queryRight: number): number {
+      if (left > queryRight || right < queryLeft || left > right) return 0
+      if (queryLeft <= left && right <= queryRight) return node.sum
+
+
+      this._pushDown(node)
+
+      const mid = left + ((right - left) >> 1)
+
+      return this._queryRange(node.left, left, mid, queryLeft, queryRight) +
+        this._queryRange(node.right, mid + 1, right, queryLeft, queryRight)
+    }
+
+    private _pushDown(node: SegmentTreeNode) {
+      if (!node.left || !node.right || !node.lazy) return
+
+      node.lazy = false
+
+      node.left.lazy = !node.lazy
+      node.left.sum = node.left.range - node.left.sum
+
+      node.right.lazy = !node.lazy
+      node.right.sum = node.right.range - node.right.sum
     }
   }
 
-  queryRange(left: number, right: number): number {
-    return this._queryRange(0, 0, this.nums.length - 1, left, right)
-  }
+  function handleQuery(nums1: number[], nums2: number[], queries: number[][]): number[] {
+    const tree = new SegmentTree(nums1)
+    const res = []
+    let sum2 = nums2.reduce((sum, num) => sum + num, 0)
 
-  private _queryRange(root: number, start: number, end: number, left: number, right: number): number {
-    if (right < start || end < left) return 0
-    if (left <= start && end <= right) return this.tree[root]
-
-    if (start < end) {
-      this._pushDown(root, start, end)
-      const mid = start + ((end - start) >> 1)
-      const res = this._queryRange(root * 2 + 1, start, mid, left, right)
-        + this._queryRange(root * 2 + 2, mid + 1, end, left, right)
-
-      this.tree[root] = this.tree[root * 2 + 1] + this.tree[root * 2 + 2]
-
-      return res
+    for (const [op, l, r] of queries) {
+      if (op === 1) {
+        tree.updateRangeReverse(l, r)
+      } else if (op === 2) {
+        sum2 += tree.queryRange(0, nums1.length - 1) * l
+      } else {
+        res.push(sum2)
+      }
     }
 
-    // shouldn't reach hear
-    return this.tree[root]
-  }
+    return res
+  };
+
+  // find why code not run as we expect
+  // expected: [109,109,197,197]
+  // actually: [109,109,145,145]
+  console.log(handleQuery(
+    [0,1,0,0,0,0],
+
+    [14,4,13,13,47,18],
+    [[3,0,0],[1,4,4],[1,1,4],[1,3,4],[3,0,0],[2,5,0],[1,1,3],[2,16,0],[2,10,0],[3,0,0],[3,0,0],[2,6,0]]))
 }
-
-function handleQuery(nums1: number[], nums2: number[], queries: number[][]): number[] {
-  const segTree = new LazySumSegTree(nums1)
-  let sum = nums2.reduce((res, num) => res + num, 0)
-  const res: number[] = []
-
-  for (const [type, l, r] of queries) {
-    if (type === 1) segTree.updateRange(l, r)
-    else if (type === 2) sum += segTree.queryRange(0, nums1.length - 1) * l
-    else res.push(sum)
-  }
-
-  return res
-};

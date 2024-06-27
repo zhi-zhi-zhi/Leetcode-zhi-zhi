@@ -109,5 +109,5 @@ function countBlackBlocks(m: number, n: number, coordinates: number[][]): number
   }
 };
 
-// console.log(countBlackBlocks(3, 3, [[0, 0]]))
-// console.log(countBlackBlocks(3, 3, [[0,0],[1,1],[0,2]]))
+console.log(countBlackBlocks(3, 3, [[0, 0]]))
+console.log(countBlackBlocks(3, 3, [[0,0],[1,1],[0,2]]))
